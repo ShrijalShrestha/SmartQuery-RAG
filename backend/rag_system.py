@@ -122,7 +122,7 @@ class RAGSystem:
                 return True
             
             # Add to existing vector store
-            self.vector_store_manager.add_documents(chunked_documents)
+            self.vector_store_manager.create_vector_store(chunked_documents)
             
             logger.info(f"Successfully added {len(documents)} documents")
             return True

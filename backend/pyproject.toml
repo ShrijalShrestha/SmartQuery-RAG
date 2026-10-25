@@ -7,17 +7,21 @@ requires-python = ">=3.9"
 dependencies = [
     "python-dotenv",
     "pinecone",
+    "pinecone-text",
     "sentence-transformers",
     "fastapi",
     "uvicorn[standard]",
     "python-multipart",
+    "pydantic",
+    "requests",
     "langchain",
     "langchain-community",
     "langchain-core",
+    "langchain-text-splitters",
     "langchain-google-genai",
     "langchain-pinecone",
-    "llama-parse",
-    "pypdf",
+    "langchain-huggingface>=0.3.1",
+    "pymupdf",
     "python-docx",
     "unstructured[docx,pdf]",
     "numpy",
@@ -26,8 +30,11 @@ dependencies = [
     "tiktoken",
 ]
 
-[tool.uv]
-dev-dependencies = [
+[tool.setuptools.packages.find]
+exclude = ["data*", "hf_models_cache*"]
+
+[dependency-groups]
+dev = [
     "pytest",
     "black",
     "flake8",

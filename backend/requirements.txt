@@ -1,6 +1,7 @@
 # Core dependencies for the RAG system
 python-dotenv
 pinecone
+pinecone-text
 sentence-transformers
 
 # FastAPI and web server
@@ -14,6 +15,7 @@ langchain-community
 langchain-core
 langchain-google-genai
 langchain-pinecone
+langchain-huggingface
 
 # Document processing
 pymupdf
@@ -21,9 +23,3 @@ python-docx
 unstructured
 unstructured[local-inference]
 
-# Additional utilities
-numpy
-transformers
-torch
-tiktoken
-requests

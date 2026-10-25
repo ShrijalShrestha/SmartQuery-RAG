@@ -97,7 +97,7 @@ export default function RAGSystemUI() {
       const res = await fetch(`${API_BASE}/query`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query, max_results: 3, score_threshold: 0.1 }),
+        body: JSON.stringify({ query, max_results: 5, score_threshold: 0.1 }),
       });
       const data = await res.json();
       setQueryResult(data);
@@ -190,17 +190,9 @@ export default function RAGSystemUI() {
         {queryResult && typeof queryResult === "object" && queryResult.answer && (
           <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded mt-4 mb-6">
             <h3 className="font-semibold text-blue-700 mb-2">📘 Answer:</h3>
-            <p className="text-gray-800 whitespace-pre-line">
-              {queryResult.answer.split('\n\n')[0]}
+            <p className="text-gray-800 whitespace-pre-line text-base leading-relaxed">
+              {queryResult.answer}
             </p>
-            <ul className="list-disc list-inside text-gray-800 mt-3 space-y-1">
-              {queryResult.answer
-                .split('* ')
-                .slice(1)
-                .map((point, index) => (
-                  <li key={index}>{point.trim()}</li>
-                ))}
-            </ul>
           </div>
         )}
 

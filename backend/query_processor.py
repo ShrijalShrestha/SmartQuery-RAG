@@ -37,6 +37,8 @@ class QueryProcessor:
                 temperature=0.1,  # Low temperature for more consistent responses
                 max_tokens=1024,  # Reasonable response length
                 top_p=0.9,       # Nucleus sampling for better quality
+                timeout=45,       # Prevent hanging indefinitely
+                max_retries=2,    # Fast failover if issues arise
             )
             
             logger.info("LLM initialized successfully")
@@ -48,26 +50,28 @@ class QueryProcessor:
     def _setup_qa_chain(self) -> None:
         """Setup the question-answering chain with custom prompt."""
         try:
-            # Custom prompt template for better responses
-            prompt_template = """
-            You are an expert assistant trained to summarize and answer insurance policy questions accurately based only on the provided context.
+            # Universal, high-accuracy RAG prompt applicable to any document type and question style
+            prompt_template = """You are an intelligent, precise question-answering assistant.
+Your task is to answer the user's question accurately and thoroughly based ONLY on the provided context below.
 
-            Context:
-            {context}
+Context:
+{context}
 
-            Question:
-            {question}
+Question: {question}
 
-            Instructions:
-            1. Use only the information from the context.
-            2. Provide a clear, concise, and professional summary of the relevant policy clause.
-            3. Do not quote the document verbatim unless necessary — **paraphrase into natural, formal language**.
-            4. If multiple conditions apply, summarize them logically and cohesively.
-            5. Do not add information beyond the context.
-            6. If the answer cannot be derived from the context, reply: "I don't have enough information to answer this question."
+Instructions:
+1. Grounding: Answer strictly using the information present in the context. Do not invent facts or extrapolate beyond what is documented.
+2. Understanding:
+   - For definition/conceptual questions ("what is X", "who is Y"): State what the document defines, describes, or mentions regarding X or Y.
+   - For conditional/procedural questions: Summarize the relevant rules, criteria, steps, or exclusions clearly.
+   - For indirect questions: Connect relevant pieces of evidence from the context to form a coherent answer.
+3. Partial Information: If the context answers only part of the question, provide what is available.
+4. Missing Information: Only if the context contains no relevant details or clues to address the question, respond with:
+   "This information is not available in the provided documents."
+5. Style: Be direct, factual, and concise (2 to 4 sentences). Avoid fluff like "According to the context".
 
-            Answer:
-            """
+Answer:"""
+
 
             
             self.prompt = PromptTemplate(
@@ -81,14 +85,14 @@ class QueryProcessor:
             logger.error(f"Failed to setup QA chain: {e}")
             raise
     
-    def process_query(self, query: str, max_results: int = 5, score_threshold: float = 0.1) -> Dict[str, Any]:
+    def process_query(self, query: str, max_results: int = 4, score_threshold: float = 0.3) -> Dict[str, Any]:
         """
         Process a query and return the answer with sources.
         
         Args:
             query: The query string
             max_results: Maximum number of source documents to retrieve
-            score_threshold: Minimum similarity score threshold
+            score_threshold: Minimum similarity score threshold (higher = more selective)
             
         Returns:
             Dictionary containing answer and sources
@@ -96,17 +100,33 @@ class QueryProcessor:
         try:
             logger.info(f"Processing query: {query[:100]}...")
             
-            # Retrieve relevant documents with scores
+            # Enrich query for definition/conceptual questions if needed
+            search_query = query
+            q_lower = query.lower().strip()
+            if any(q_lower.startswith(p) for p in ["who is", "what is", "define", "meaning of", "who are"]):
+                # Append definition-oriented terms to capture policy definition clauses
+                search_query = f"{query} definition meaning eligible eligibility terms"
+
+            # First try with higher threshold
             search_results = self.vector_store_manager.similarity_search(
-                query=query,
+                query=search_query,
                 k=max_results,
                 score_threshold=score_threshold
             )
             
+            # If no results with higher threshold, try with lower threshold or original query
             if not search_results:
-                logger.warning("No relevant documents found")
+                logger.info("No results with higher threshold, trying with lower threshold")
+                search_results = self.vector_store_manager.similarity_search(
+                    query=query,
+                    k=max_results,
+                    score_threshold=0.05  # Lower fallback threshold
+                )
+            
+            if not search_results:
+                logger.warning("No relevant documents found even with lower threshold")
                 return {
-                    "answer": "I don't have enough information to answer this question based on the available documents.",
+                    "answer": "This information is not available in the policy documents provided.",
                     "sources": [],
                     "confidence": 0.0
                 }
@@ -130,9 +150,9 @@ class QueryProcessor:
             # Format sources
             sources = self._format_sources(relevant_docs, scores)
             
-            # Calculate confidence based on actual similarity scores
+            # Calculate confidence based on actual similarity scores and threshold used
             avg_score = sum(scores) / len(scores) if scores else 0.0
-            confidence = min(0.95, avg_score * 0.8 + (len(relevant_docs) * 0.05))
+            confidence = min(0.95, avg_score * 0.7 + (len(relevant_docs) * 0.05))
             
             result = {
                 "answer": answer,
@@ -193,11 +213,53 @@ class QueryProcessor:
             else:
                 answer = str(response)
             
-            return answer.strip()
+            # Post-process answer for consistency
+            answer = self._post_process_answer(answer.strip())
+            
+            return answer
             
         except Exception as e:
             logger.error(f"Failed to generate answer: {e}")
             return f"Error generating answer: {str(e)}"
+    
+    def _post_process_answer(self, answer: str) -> str:
+        """Post-process the answer to ensure consistency and conciseness."""
+        try:
+            # Remove common redundant phrases
+            redundant_phrases = [
+                "Based on the provided context, ",
+                "According to the policy documents, ",
+                "From the information provided, ",
+                "The policy states that ",
+                "As per the policy, "
+            ]
+            
+            for phrase in redundant_phrases:
+                if answer.startswith(phrase):
+                    answer = answer[len(phrase):].strip()
+                    # Capitalize first letter after removing prefix
+                    if answer and answer[0].islower():
+                        answer = answer[0].upper() + answer[1:]
+            
+            # Ensure the answer ends with proper punctuation
+            if answer and not answer.endswith(('.', '!', '?')):
+                answer += '.'
+            
+            # Replace very long sentences with more concise versions
+            if len(answer) > 300:
+                # Try to find a natural break point
+                sentences = answer.split('. ')
+                if len(sentences) > 2:
+                    # Keep first 2 sentences if they're substantial
+                    first_two = '. '.join(sentences[:2])
+                    if len(first_two) > 100:  # Ensure we're keeping substantial content
+                        answer = first_two + '.'
+            
+            return answer
+            
+        except Exception as e:
+            logger.error(f"Error in post-processing answer: {e}")
+            return answer  # Return original if post-processing fails
     
     def _format_sources(self, documents: List[Document], scores: List[float] = None) -> List[Dict[str, Any]]:
         """Format source documents for response with flat structure for frontend."""

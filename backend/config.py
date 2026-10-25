@@ -50,6 +50,7 @@ class Config:
         
         # Set the environment variables
         os.environ['HF_HOME'] = cache_dir
+        os.environ["NLTK_DATA"] = "C:\\Users\\shrij\\AppData\\Roaming\\nltk_data"
 
     # API Keys (LlamaCloud key optional; PyMuPDF is used for PDFs)
     LLAMA_CLOUD_API_KEY: str = os.getenv("LLAMA_CLOUD_API_KEY", "")
@@ -58,22 +59,22 @@ class Config:
     PINECONE_REGION: str = os.getenv("PINECONE_REGION", "us-east-1")
     
     # Model Configuration
-    LLM_MODEL_NAME: str = "gemini-2.5-flash"
+    LLM_MODEL_NAME: str = "gemini-3.5-flash-lite"
     EMBEDDING_MODEL_NAME: str = "all-MiniLM-L6-v2"
     EMBEDDING_DIMENSION: int = 384  # all-MiniLM-L6-v2 produces 384-dimensional embeddings
     
     # Pinecone Configuration
     PINECONE_INDEX_NAME: str = "llm-rag-langchain-index"
-    PINECONE_METRIC: str = "cosine"
+    PINECONE_METRIC: str = "dotproduct"
     PINECONE_CLOUD: str = "aws"
     
     # Document Processing Configuration
-    CHUNK_SIZE: int = 800
-    CHUNK_OVERLAP: int = 100
-    MAX_TOKENS_PER_CHUNK: int = 800  # For better embedding quality
+    CHUNK_SIZE: int = 1000
+    CHUNK_OVERLAP: int = 150
+    MAX_TOKENS_PER_CHUNK: int = 1000  # For better embedding quality
     
     # Retrieval Configuration
-    TOP_K_DOCUMENTS: int = 3
+    TOP_K_DOCUMENTS: int = 5
     SIMILARITY_THRESHOLD: float = 0.7
     
     # File Processing Configuration

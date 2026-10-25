@@ -98,7 +98,7 @@ docker run -p 8000:8000 --env-file .env rag-backend
 
 ### LLM Integration
 - **Provider**: Google Gemini
-- **Model**: gemini-pro (configurable)
+- **Model**: gemini-3.8-flash (configurable)
 - **Temperature**: 0.1 (for consistent responses)
 - **Max Tokens**: 1024
 
