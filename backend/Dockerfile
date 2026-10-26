@@ -45,12 +45,15 @@ WORKDIR /app
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Create non-root user
-RUN groupadd -r appuser && useradd -r -g appuser -d /app appuser
-USER appuser
+# Create non-root user and grant ownership of /app
+RUN groupadd -r appuser && useradd -r -g appuser -d /app appuser \
+    && mkdir -p /app/hf_models_cache /app/data \
+    && chown -R appuser:appuser /app
 
 # Copy application source code
 COPY --chown=appuser:appuser . .
+
+USER appuser
 
 EXPOSE 8000
 
