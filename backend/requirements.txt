@@ -20,6 +20,5 @@ langchain-huggingface
 # Document processing
 pymupdf
 python-docx
-unstructured
-unstructured[local-inference]
+pypdf
 
